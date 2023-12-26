@@ -1,5 +1,5 @@
 # import cv2
-import numpy as np
+# import numpy as np
 # from tensorflow.keras.models import load_model
 
 # model=load_model('mnist_model.h5')
@@ -36,121 +36,47 @@ import numpy as np
 # cap.release()
 # cv2.destroyAllWindows()        
 
-
-# import cv2
-# import cvzone 
-# import math
-# from tensorflow.keras.models import load_model
-
-# model=load_model('mnist_model.h5')
-
-# cap = cv2.VideoCapture(0)  # 0 for one webcam, 1 for multiple webcams
-# cap.set(3, 1280)  # width
-# cap.set(4, 720)  # height 630 by 480
-
-# class_names = {0:'one',1:'1',2:'2',3:'3',4:'4',5:'5',6:'6',7:'7',8:'8',9:'9'}
-
-# def img_classifier(img):
-
-#   img=cv2.resize(img,(224,224))
-#   img=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-#   img=cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
-#   img=img.reshape(1,224,224,3)
-#   img=img/255.0
-#   predication=model.predict(img)
-#   class_index=np.argmax(predication)
-#   class_label=class_names[class_index]
-#   confidence=predication[0][class_index]
-#   return  class_label,confidence,predication
-
-
-# while True:
-#     success, frame = cap.read()
-#     class_label,cofidence,predication = img_classifier(frame)
-
-#     # bounding box
-#     for r in predication:
-#         boxes = r.boxes
-#         for box in boxes:
-#             x1, y1, x2, y2 = box.xyxy[0]
-#             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-
-#             print(x1, y1, x2, y2)
-#             cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 255), 3)
-
-#             # # confidence
-#             # conf = math.ceil((box.conf[0] * 100)) / 100
-
-#             # # class name
-#             # cls = int(box.cls[0])
-#             cvzone.putTextRect(frame, f'{class_label} {confidence}', (max(0, x1), max(40, y1)))
-
-#     cv2.imshow("img", frame)
-
-#     if cv2.waitKey(1) == ord('q'):
-#         break
-
-# cap.release()
-# cv2.destroyAllWindows()
-
 import cv2
-from tensorflow.keras.models import load_model
 import numpy as np
+from tensorflow.keras.models import load_model
 
+# Load ASL model
 model = load_model('mnist_model.h5')
 
-cap = cv2.VideoCapture(0)  # 0 for one webcam, 1 for multiple webcams
-cap.set(3, 1280)  # width
-cap.set(4, 720)  # height 630 by 480
+# Load class labels
+with open('labels.names', 'r') as f:
+    labels = f.read().split('\n')
 
-class_names = {0: 'one', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9'}
-
-def img_classifier(img):
-    img = cv2.resize(img, (224, 224))
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    img = img.reshape(1, 224, 224, 3)
-    img = img / 255.0
-    prediction = model.predict(img)
-    class_index = np.argmax(prediction)
-    class_label = class_names[class_index]
-    confidence = prediction[0][class_index]
-    return class_label, confidence, prediction
-
-# Create a CSRT tracker
-tracker = cv2.TrackerCSRT_create()
-
-# Initialize bounding box
-bbox = (50, 50, 200, 200)
-tracking = False
+# Open the camera
+cam = cv2.VideoCapture(0)
 
 while True:
-    success, frame = cap.read()
+    # Read a frame from the camera
+    _, frame = cam.read()
+    frame = cv2.flip(frame, 1)
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    if tracking:
-        # Update the tracker
-        success, bbox = tracker.update(frame)
+    # Assuming your ASL model doesn't require hand landmarks, you can use the entire frame
+    # (You might need to resize or preprocess the frame depending on your model's input requirements)
+    input_data=cv2.resize(frame_rgb,(224,224))
+    input_data = np.expand_dims(input_data, axis=0)
 
-        # Draw bounding box
-        if success:
-            x, y, w, h = [int(i) for i in bbox]
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 255), 3)
+    # Make prediction using the ASL model
+    prediction = model.predict(input_data)
+    print(prediction)
+    class_id = np.argmax(prediction)
+    class_name = labels[class_id]
 
-    class_label, confidence, prediction = img_classifier(frame)
+    # Display the result on the frame
+    cv2.putText(frame, class_name, (10, 50), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 1, (0, 0, 255), 2)
 
-    # Display class label and confidence
-    cv2.putText(frame, f'{class_label} {confidence:.2f}', (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+    # Show the frame
+    cv2.imshow("Mnist Recognition", frame)
 
-    cv2.imshow("img", frame)
-
+    # Break the loop if 'q' is pressed
     if cv2.waitKey(1) == ord('q'):
         break
 
-    # Press 's' to start object tracking
-    elif cv2.waitKey(1) == ord('s') and not tracking:
-        tracking = True
-        bbox = cv2.selectROI("img", frame, False)
-        tracker.init(frame, bbox)
-
-cap.release()
+# Release resources
+cam.release()
 cv2.destroyAllWindows()
